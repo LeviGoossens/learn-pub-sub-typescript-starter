@@ -102,13 +102,3 @@ export function handlerWar(gs: GameState, cc: ConfirmChannel): (rw: RecognitionO
     }
   }
 }
-export function handlerLogs(): (gl: GameLog) => Promise<AckType> {
-  return async (gl: GameLog): Promise<AckType> => {
-    try {
-      await writeLog(gl);
-    } catch (err) {
-      console.error("Error writing game log:", err);
-    }
-    return AckType.Ack;
-  }
-}
