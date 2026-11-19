@@ -1,20 +1,27 @@
 import amqp, {type ConfirmChannel} from "amqplib";
-import { clientWelcome, commandStatus, getInput, printClientHelp, printQuit } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind, SimpleQueueType, subscribeJSON } from "../internal/pubsub/consume.js";
 import {
+  clientWelcome,
+  commandStatus,
+  getInput,
+  getMaliciousLog,
+  printClientHelp,
+  printQuit
+} from "../internal/gamelogic/gamelogic.js";
+import {SimpleQueueType, subscribeJSON} from "../internal/pubsub/consume.js";
+import {
+  ArmyMovesPrefix,
   ExchangePerilDirect,
   ExchangePerilTopic,
+  GameLogSlug,
   PauseKey,
-  WarRecognitionsPrefix,
-  ArmyMovesPrefix,
-  GameLogSlug
+  WarRecognitionsPrefix
 } from "../internal/routing/routing.js";
-import { GameState } from "../internal/gamelogic/gamestate.js";
-import { commandSpawn } from "../internal/gamelogic/spawn.js";
-import { commandMove } from "../internal/gamelogic/move.js";
-import { handlerMove, handlerPause, handlerWar } from "./handlers.js";
-import { publishJSON, publishMsgPack } from "../internal/pubsub/publish.js";
-import { type GameLog } from "../internal/gamelogic/logs.js"
+import {GameState} from "../internal/gamelogic/gamestate.js";
+import {commandSpawn} from "../internal/gamelogic/spawn.js";
+import {commandMove} from "../internal/gamelogic/move.js";
+import {handlerMove, handlerPause, handlerWar} from "./handlers.js";
+import {publishJSON, publishMsgPack} from "../internal/pubsub/publish.js";
+import {type GameLog} from "../internal/gamelogic/logs.js"
 
 export function publishGameLog(channel: ConfirmChannel, username: string, message: string) {
   let gameLog: GameLog = {currentTime: new Date(), message, username};
@@ -40,43 +47,44 @@ async function main() {
 
   while (true) {
     const input = await getInput();
-      const first_word = input[0];
+    const first_word = input[0];
 
-      if (first_word === "spawn") {
-        console.log("Sending a spawn message");
-        try {
-          commandSpawn(myGameState, input);
-        } catch (error) {
-          console.error(error);
-        }
-      }
-      else if (first_word === "move") {
-        console.log("Sending a move message");
-        try {
-          const am = commandMove(myGameState, input);
-          await publishJSON(confirmChannel, ExchangePerilTopic, ArmyMovesPrefix + "." + username, am);
+    if (first_word === "spawn") {
+      console.log("Sending a spawn message");
+      try {
+        commandSpawn(myGameState, input);
       } catch (error) {
         console.error(error);
       }
-    }
-    else if (first_word === "status") {
-        commandStatus(myGameState);
-    }
-    else if (first_word === "help") {
+    } else if (first_word === "move") {
+      console.log("Sending a move message");
+      try {
+        const am = commandMove(myGameState, input);
+        await publishJSON(confirmChannel, ExchangePerilTopic, ArmyMovesPrefix + "." + username, am);
+      } catch (error) {
+        console.error(error);
+      }
+    } else if (first_word === "status") {
+      commandStatus(myGameState);
+    } else if (first_word === "help") {
       printClientHelp();
-    }
-    else if (first_word === "spam") {
+    } else if (first_word === "spam") {
       console.log("Spamming not allowed yet!");
+      if (input[1] !== '' || input[1] !== undefined) {
+        const number = parseInt(<string>input[1]);
+        for (let i = 0; i < number; i++) {
+          await publishMsgPack(confirmChannel, ExchangePerilTopic, `${GameLogSlug}.${username}`, {currentTime: new Date(), message: getMaliciousLog(), username});
+        }
       }
-      else if (first_word === "quit") {
-        console.log("We are quiting. Breaking out of loop.");
-        printQuit();
-        break;
-      }
-      else {
-        console.error("command not understood. Please try again");
-      }
-    };
+    } else if (first_word === "quit") {
+      console.log("We are quiting. Breaking out of loop.");
+      printQuit();
+      break;
+    } else {
+      console.error("command not understood. Please try again");
+    }
+  }
+
 
 
   process.on('SIGINT', async () => {
