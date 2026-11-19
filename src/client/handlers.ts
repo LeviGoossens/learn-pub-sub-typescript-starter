@@ -7,6 +7,7 @@ import { AckType } from "../internal/pubsub/consume.js";
 import { publishJSON } from "../internal/pubsub/publish.js";
 import { ExchangePerilTopic, WarRecognitionsPrefix } from "../internal/routing/routing.js";
 import { handleWar, WarOutcome } from "../internal/gamelogic/war.js";
+import {publishGameLog} from "./index.js";
 
 export function handlerPause(gs: GameState): (ps: PlayingState) => AckType{
   return (ps: PlayingState): AckType => {
@@ -45,11 +46,10 @@ export function handlerMove(gs: GameState, cc: ConfirmChannel): (am: ArmyMove) =
   };
 }
 
-export function handlerWar(gs: GameState): (rw: RecognitionOfWar) => Promise<AckType> {
+export function handlerWar(gs: GameState, cc: ConfirmChannel): (rw: RecognitionOfWar) => Promise<AckType> {
   return async (rw: RecognitionOfWar): Promise<AckType> => {
     try {
       const outcome = handleWar(gs, rw);
-
       switch (outcome.result) {
         case WarOutcome.NotInvolved:
           return AckType.NackRequeue;
@@ -57,7 +57,11 @@ export function handlerWar(gs: GameState): (rw: RecognitionOfWar) => Promise<Ack
           return AckType.NackDiscard;
         case WarOutcome.YouWon:
         case WarOutcome.OpponentWon:
+
+          await publishGameLog(cc, gs.getUsername(), `${outcome.winner} won a war against ${outcome.loser}`);
+          return AckType.Ack;
         case WarOutcome.Draw:
+          await publishGameLog(cc, gs.getUsername(), `A war between ${rw.attacker.username} and ${rw.defender.username} resulted in a draw`);
           return AckType.Ack;
 
         default:

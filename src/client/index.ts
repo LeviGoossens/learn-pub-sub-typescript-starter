@@ -1,12 +1,25 @@
-import amqp from "amqplib";
+import amqp, {type ConfirmChannel} from "amqplib";
 import { clientWelcome, commandStatus, getInput, printClientHelp, printQuit } from "../internal/gamelogic/gamelogic.js";
 import { declareAndBind, SimpleQueueType, subscribeJSON } from "../internal/pubsub/consume.js";
-import { ExchangePerilDirect, ExchangePerilTopic, PauseKey, WarRecognitionsPrefix, ArmyMovesPrefix } from "../internal/routing/routing.js";
+import {
+  ExchangePerilDirect,
+  ExchangePerilTopic,
+  PauseKey,
+  WarRecognitionsPrefix,
+  ArmyMovesPrefix,
+  GameLogSlug
+} from "../internal/routing/routing.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 import { handlerMove, handlerPause, handlerWar } from "./handlers.js";
-import { publishJSON } from "../internal/pubsub/publish.js";
+import { publishJSON, publishMsgPack } from "../internal/pubsub/publish.js";
+import { type GameLog } from "../internal/gamelogic/logs.js"
+
+export async function publishGameLog(channel: ConfirmChannel, username: string, message: string) {
+  let gameLog: GameLog = {currentTime: new Date(), message: message, username: username};
+  await publishMsgPack(channel, ExchangePerilTopic, GameLogSlug + "." + username, gameLog);
+}
 
 async function main() {
   console.log("Starting Peril client...");
@@ -22,7 +35,7 @@ async function main() {
   await subscribeJSON(conn, ExchangePerilDirect, PauseKey + "." + username, PauseKey, SimpleQueueType.Transient, handlerPause(myGameState));
   await subscribeJSON(conn, ExchangePerilTopic, ArmyMovesPrefix + "." + username, ArmyMovesPrefix + ".*", SimpleQueueType.Transient, handlerMove(myGameState, confirmChannel));
 
-  await subscribeJSON(conn, ExchangePerilTopic, WarRecognitionsPrefix, WarRecognitionsPrefix + ".*", SimpleQueueType.Durable, handlerWar(myGameState));
+  await subscribeJSON(conn, ExchangePerilTopic, WarRecognitionsPrefix, WarRecognitionsPrefix + ".*", SimpleQueueType.Durable, handlerWar(myGameState, confirmChannel));
 
 
   while (true) {
