@@ -1,9 +1,10 @@
-import amqp, { type Channel } from "amqplib";
+import amqp, {type Channel, type ConfirmChannel} from "amqplib";
+import {decode} from "@msgpack/msgpack";
 
 export enum SimpleQueueType {
   Durable,
   Transient,
-};
+}
 
 export enum AckType {
   Ack,
@@ -32,7 +33,7 @@ export async function declareAndBind(
     await ch.bindQueue(queueName, exchange, key);
 
     return [ch, queue];
-};
+}
 
 export async function subscribeJSON<T>(
   conn: amqp.ChannelModel,
@@ -58,6 +59,57 @@ export async function subscribeJSON<T>(
 
     try {
       const result = await handler(jsonParsed);
+      switch (result) {
+        case AckType.Ack:
+          ch.ack(message);
+          break;
+
+        case AckType.NackRequeue:
+          ch.nack(message, false, true);
+          break;
+
+        case AckType.NackDiscard:
+          ch.nack(message, false, false);
+          break;
+
+        default:
+          console.error("Unexpected ack type:");
+          return;
+      }
+    } catch (err) {
+      console.error("Error handling message:", err);
+      ch.nack(message, false, false);
+      return;
+    }
+  });
+}
+
+export async function subscribeMsgPack<T>(
+  conn: amqp.ChannelModel,
+  exchange: string,
+  queueName: string,
+  key: string,
+  queueType: SimpleQueueType,
+  handler: (data: T) => Promise<AckType> | AckType,
+): Promise<void> {
+  const [ch, queue] = await declareAndBind(conn, exchange, queueName, key, queueType);
+
+  await ch.consume(queue.queue, async (message: amqp.ConsumeMessage | null) => {
+    if (message === null) {
+      return;
+    }
+    let decoded;
+    let deserialized
+    try {
+      const buffer = Buffer.from(message.content)
+      deserialized = decode(buffer, buffer.byteOffset, buffer.byteLength);
+    } catch (err) {
+      console.error("Could not unmarshal message:", err);
+      return;
+    }
+
+    try {
+      const result = await handler(deserialized);
       switch (result) {
         case AckType.Ack:
           ch.ack(message);

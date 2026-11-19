@@ -3,8 +3,11 @@ import { publishJSON } from "../internal/pubsub/publish.js";
 import { ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey } from "../internal/routing/routing.js";
 import { GameState, type PlayingState } from "../internal/gamelogic/gamestate.js";
 import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind, SimpleQueueType } from "../internal/pubsub/consume.js";
+import {declareAndBind, SimpleQueueType, subscribeMsgPack} from "../internal/pubsub/consume.js";
+import {handlerLogs} from "../client/handlers.js";
+function t() {
 
+}
 async function main() {
   console.log("Starting Peril server...");
   const connString = "amqp://guest:guest@localhost:5672/";
@@ -13,7 +16,7 @@ async function main() {
 
   const channel = await conn.createConfirmChannel();
 
-  const durableQueue = await declareAndBind(conn, ExchangePerilTopic, GameLogSlug, "game_logs.*", SimpleQueueType.Durable);
+  await subscribeMsgPack(conn, ExchangePerilTopic, GameLogSlug, GameLogSlug + ".*", SimpleQueueType.Durable, handlerLogs());
 
   printServerHelp();
   while (true) {

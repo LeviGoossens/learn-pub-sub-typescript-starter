@@ -8,6 +8,7 @@ import { publishJSON } from "../internal/pubsub/publish.js";
 import { ExchangePerilTopic, WarRecognitionsPrefix } from "../internal/routing/routing.js";
 import { handleWar, WarOutcome } from "../internal/gamelogic/war.js";
 import {publishGameLog} from "./index.js";
+import {type GameLog, writeLog} from "../internal/gamelogic/logs.js";
 
 export function handlerPause(gs: GameState): (ps: PlayingState) => AckType{
   return (ps: PlayingState): AckType => {
@@ -99,5 +100,15 @@ export function handlerWar(gs: GameState, cc: ConfirmChannel): (rw: RecognitionO
     } finally {
       process.stdout.write("> ");
     }
+  }
+}
+export function handlerLogs(): (gl: GameLog) => Promise<AckType> {
+  return async (gl: GameLog): Promise<AckType> => {
+    try {
+      await writeLog(gl);
+    } catch (err) {
+      console.error("Error writing game log:", err);
+    }
+    return AckType.Ack;
   }
 }
