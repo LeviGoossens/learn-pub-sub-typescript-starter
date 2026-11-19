@@ -56,12 +56,40 @@ export function handlerWar(gs: GameState, cc: ConfirmChannel): (rw: RecognitionO
         case WarOutcome.NoUnits:
           return AckType.NackDiscard;
         case WarOutcome.YouWon:
+          try {
+            await publishGameLog(
+              cc,
+              gs.getUsername(),
+              `${outcome.winner} won the war against ${outcome.loser}.`,
+            );
+          } catch (err) {
+            console.error("Error publishing game log:", err);
+            return AckType.NackRequeue;
+          }
+          return AckType.Ack;
         case WarOutcome.OpponentWon:
-
-          await publishGameLog(cc, gs.getUsername(), `${outcome.winner} won a war against ${outcome.loser}`);
+          try {
+            await publishGameLog(
+              cc,
+              gs.getUsername(),
+              `${outcome.winner} won the war against ${outcome.loser}.`,
+            );
+          } catch (err) {
+            console.error("Error publishing game log:", err);
+            return AckType.NackRequeue;
+          }
           return AckType.Ack;
         case WarOutcome.Draw:
-          await publishGameLog(cc, gs.getUsername(), `A war between ${rw.attacker.username} and ${rw.defender.username} resulted in a draw`);
+          try {
+            await publishGameLog(
+              cc,
+              gs.getUsername(),
+              `A war between ${outcome.attacker} and ${outcome.defender} resulted in a draw.`,
+            );
+          } catch (err) {
+            console.error("Error publishing game log:", err);
+            return AckType.NackRequeue;
+          }
           return AckType.Ack;
 
         default:

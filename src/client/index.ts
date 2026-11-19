@@ -16,9 +16,9 @@ import { handlerMove, handlerPause, handlerWar } from "./handlers.js";
 import { publishJSON, publishMsgPack } from "../internal/pubsub/publish.js";
 import { type GameLog } from "../internal/gamelogic/logs.js"
 
-export async function publishGameLog(channel: ConfirmChannel, username: string, message: string) {
-  let gameLog: GameLog = {currentTime: new Date(), message: message, username: username};
-  await publishMsgPack(channel, ExchangePerilTopic, GameLogSlug + "." + username, gameLog);
+export function publishGameLog(channel: ConfirmChannel, username: string, message: string) {
+  let gameLog: GameLog = {currentTime: new Date(), message, username};
+  return publishMsgPack(channel, ExchangePerilTopic, GameLogSlug + "." + username, gameLog);
 }
 
 async function main() {

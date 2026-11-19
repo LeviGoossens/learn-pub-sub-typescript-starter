@@ -61,17 +61,14 @@ export async function subscribeJSON<T>(
       switch (result) {
         case AckType.Ack:
           ch.ack(message);
-          console.log("ack");
           break;
 
         case AckType.NackRequeue:
           ch.nack(message, false, true);
-          console.log("nack requeue");
           break;
 
         case AckType.NackDiscard:
           ch.nack(message, false, false);
-          console.log("nack discard");
           break;
 
         default:
